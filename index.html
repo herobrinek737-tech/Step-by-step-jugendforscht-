@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPV Drohnen-KI Projekt</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --bg2: #111318;
+    --bg3: #181c24;
+    --accent: #00e5ff;
+    --accent2: #ff3d6b;
+    --accent3: #ffe500;
+    --text: #e8eaf0;
+    --text2: #8a8fa8;
+    --border: rgba(0,229,255,0.15);
+    --green: #00ff88;
+    --purple: #b44dff;
+    --r: 8px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    line-height: 1.75;
+    min-height: 100vh;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content:'';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Layout ─────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ─────────────────────── */
+  nav {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+
+  .nav-sub {
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-section {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin: 1rem 0 0.5rem;
+    padding-left: 0.5rem;
+  }
+
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: var(--r);
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+
+  nav a:hover {
+    color: var(--text);
+    background: var(--bg3);
+    border-color: var(--border);
+  }
+
+  nav a.active {
+    color: var(--accent);
+    background: rgba(0,229,255,0.07);
+    border-color: rgba(0,229,255,0.25);
+  }
+
+  .nav-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .phase-badge {
+    margin-top: auto;
+    background: rgba(0,229,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .phase-badge span {
+    font-size: 10px;
+    color: var(--text2);
+    display: block;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+
+  .phase-badge strong {
+    color: var(--accent3);
+    font-size: 12px;
+  }
+
+  /* ── Main ─────────────────────── */
+  main {
+    padding: 3rem 3.5rem;
+    max-width: 900px;
+  }
+
+  /* ── Hero ─────────────────────── */
+  .hero {
+    margin-bottom: 4rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 0.35rem 0.75rem;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 1rem;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .hero-desc {
+    color: var(--text2);
+    font-size: 14px;
+    max-width: 580px;
+    margin-bottom: 2rem;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .stat {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1rem;
+  }
+
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Sections ─────────────────────── */
+  section {
+    margin-bottom: 4rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .phase-num {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+    flex-shrink: 0;
+  }
+
+  h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  p { color: var(--text2); margin-bottom: 1rem; }
+
+  /* ── Steps ─────────────────────── */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .step-num {
+    width: 40px; height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--accent);
+    flex-shrink: 0;
+    background: rgba(0,229,255,0.05);
+  }
+
+  .step-body {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .step-body:hover { border-color: rgba(0,229,255,0.35); }
+
+  .step-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .step-desc { color: var(--text2); font-size: 13px; margin: 0; }
+
+  /* ── Code blocks ─────────────────────── */
+  .code-block {
+    background: #0d0f14;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    margin: 1rem 0;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.08em;
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover {
+    color: var(--accent);
+    border-color: rgba(0,229,255,0.4);
+  }
+
+  .copy-btn.copied {
+    color: var(--green);
+    border-color: rgba(0,255,136,0.4);
+  }
+
+  pre {
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.8;
+  }
+
+  code { color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  .kw { color: #ff79c6; }
+  .str { color: var(--accent3); }
+  .cm { color: #555e7d; font-style: italic; }
+  .fn { color: #50fa7b; }
+  .num { color: #bd93f9; }
+
+  /* ── Inline code ─────────────────────── */
+  p code, li code {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1rem 0.4rem;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  /* ── Cards (Hardware etc) ─────────────────────── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1.25rem;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: rgba(0,229,255,0.35); }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .card-price {
+    color: var(--accent3);
+    font-size: 13px;
+  }
+
+  .card-note { color: var(--text2); font-size: 12px; margin-top: 0.5rem; }
+
+  .total-card {
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.3);
+    border-radius: var(--r);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+  }
+
+  .total-card span { color: var(--text2); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .total-card strong { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.2rem; color: var(--accent3); }
+
+  /* ── KI Mode cards ─────────────────────── */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .mode-card {
+    border-radius: var(--r);
+    padding: 1.25rem;
+    border: 1px solid;
+  }
+
+  .mode-card.freestyle { background: rgba(180,77,255,0.07); border-color: rgba(180,77,255,0.25); }
+  .mode-card.racing    { background: rgba(255,61,107,0.07); border-color: rgba(255,61,107,0.25); }
+  .mode-card.tracking  { background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.25); }
+  .mode-card.intrusion { background: rgba(255,229,0,0.07); border-color: rgba(255,229,0,0.25); }
+
+  .mode-card.freestyle .mode-tag { color: var(--purple); }
+  .mode-card.racing    .mode-tag { color: var(--accent2); }
+  .mode-card.tracking  .mode-tag { color: var(--green); }
+  .mode-card.intrusion .mode-tag { color: var(--accent3); }
+
+  .mode-tag {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .mode-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    color: var(--text);
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .mode-desc { color: var(--text2); font-size: 12px; }
+
+  /* ── Timeline ─────────────────────── */
+  .timeline {
+    border-left: 1px solid var(--border);
+    padding-left: 2rem;
+    margin: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .tl-item {
+    position: relative;
+    padding-bottom: 2rem;
+  }
+
+  .tl-item:last-child { padding-bottom: 0; }
+
+  .tl-dot {
+    position: absolute;
+    left: -2.4rem;
+    top: 0.15rem;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: var(--bg);
+  }
+
+  .tl-dot.done { background: var(--accent); }
+  .tl-dot.milestone { background: var(--accent3); border-color: var(--accent3); }
+
+  .tl-phase {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+
+  .tl-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+  }
+
+  .tl-desc { color: var(--text2); font-size: 12px; }
+
+  /* ── Alert/tip boxes ─────────────────────── */
+  .tip {
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-left: 3px solid var(--green);
+    border-radius: 0 var(--r) var(--r) 0;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .tip strong { color: var(--green); }
+
+  .warn {
+    background: rgba(255,229,0,0.05);
+    border: 1px solid rgba(255,229,0,0.2);
+    border-left: 3px solid var(--accent3);
+    border-radius: 0 var(--r) var(--r) 0;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    font-size: 13px;
+    color: var(--text2);
+  }
+
+  .warn strong { color: var(--accent3); }
+
+  /* ── List ─────────────────────── */
+  ul, ol {
+    padding-left: 1.5rem;
+    color: var(--text2);
+    font-size: 13px;
+    margin-bottom: 1rem;
+  }
+
+  li { margin-bottom: 0.4rem; }
+
+  li strong { color: var(--text); }
+
+  /* ── Separator ─────────────────────── */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 3rem 0;
+  }
+
+  /* ── Table ─────────────────────── */
+  table { width:100%; border-collapse: collapse; margin: 1rem 0; font-size: 12px; }
+  th {
+    text-align: left;
+    padding: 0.6rem 1rem;
+    background: var(--bg3);
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.65rem 1rem;
+    color: var(--text2);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  td:first-child { color: var(--text); }
+  tr:hover td { background: rgba(0,229,255,0.03); }
+
+  /* ── Progress bar ─────────────────────── */
+  .progress-wrap { margin: 0.5rem 0 1.5rem; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 0.35rem; }
+  .progress-track { height: 4px; background: var(--bg3); border-radius: 100px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 100px; background: var(--accent); }
+
+  /* ── Jugend forscht banner ─────────────────────── */
+  .jf-banner {
+    background: linear-gradient(135deg, rgba(180,77,255,0.12), rgba(0,229,255,0.08));
+    border: 1px solid rgba(180,77,255,0.3);
+    border-radius: var(--r);
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+
+  .jf-banner h3 { color: var(--purple); margin: 0 0 0.5rem; }
+  .jf-banner p { margin: 0; font-size: 13px; }
+
+  /* ── Footer ─────────────────────── */
+  footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 12px;
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* ── Mobile ─────────────────────── */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    nav { position: static; height: auto; }
+    main { padding: 2rem 1.5rem; }
+    .hero-stats { grid-template-columns: 1fr 1fr; }
+    .card-grid, .mode-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ─────────────────────── -->
+<nav>
+  <div class="nav-logo">FPV Drohnen-KI</div>
+  <div class="nav-sub">// Jugend forscht Projekt</div>
+
+  <div class="nav-section">Start</div>
+  <a href="#overview" class="active"><span class="nav-dot"></span>Projektübersicht</a>
+  <a href="#hardware"><span class="nav-dot"></span>Hardware kaufen</a>
+
+  <div class="nav-section">Setup</div>
+  <a href="#phase1"><span class="nav-dot"></span>Phase 1 — Software</a>
+  <a href="#phase2"><span class="nav-dot"></span>Phase 2 — Simulator</a>
+  <a href="#phase3"><span class="nav-dot"></span>Phase 3 — Quad bauen</a>
+
+  <div class="nav-section">KI Training</div>
+  <a href="#phase4"><span class="nav-dot"></span>Phase 4 — Racing KI</a>
+  <a href="#phase5"><span class="nav-dot"></span>Phase 5 — Tracking KI</a>
+  <a href="#phase6"><span class="nav-dot"></span>Phase 6 — Freestyle KI</a>
+  <a href="#phase7"><span class="nav-dot"></span>Phase 7 — Intrusion KI</a>
+
+  <div class="nav-section">Finale</div>
+  <a href="#phase8"><span class="nav-dot"></span>Phase 8 — Deployment</a>
+  <a href="#phase9"><span class="nav-dot"></span>Phase 9 — DJI Googles</a>
+  <a href="#jugend-forscht"><span class="nav-dot"></span>Jugend forscht Tipps</a>
+
+  <div class="phase-badge">
+    <span>Dein Setup</span>
+    <strong>RTX 4060 · i7-7500F · 48GB</strong>
+  </div>
+</nav>
+
+<!-- ── Main Content ─────────────────────── -->
+<main>
+
+  <!-- Hero -->
+  <div class="hero" id="overview">
+    <div class="hero-tag">
+      <span>●</span> Jugend forscht · FPV · Drohnen-KI
+    </div>
+    <h1>Autonome FPV<br><span>Drohnen-KI</span><br>von Null auf Fertig</h1>
+    <p class="hero-desc">
+      Du baust 4 spezialisierte KIs für einen 5"-Quad: Racing, Freestyle, Target-Tracking und Intrusion — komplett erklärt, Schritt für Schritt, ohne Vorwissen.
+    </p>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-val">4</div><div class="stat-label">KI-Module</div></div>
+      <div class="stat"><div class="stat-val">9</div><div class="stat-label">Phasen</div></div>
+      <div class="stat"><div class="stat-val">~600€</div><div class="stat-label">Hardware Budget</div></div>
+      <div class="stat"><div class="stat-val">RTX</div><div class="stat-label">4060 Training</div></div>
+    </div>
+  </div>
+
+  <!-- Wie das alles zusammenhängt -->
+  <section>
+    <div class="section-header">
+      <div class="phase-num">INTRO</div>
+      <h2>Wie das alles funktioniert</h2>
+    </div>
+    <p>Hier ist die Grundidee: Du trainierst KIs in einem <strong>Simulator</strong> (kein echter Quad nötig), lädst das fertige Modell dann auf einen Minicomputer (Jetson Nano) auf dem Quad, und der fliegt dann autonom. Du siehst alles live in deinen DJI Googles 3.</p>
+
+    <div class="mode-grid">
+      <div class="mode-card freestyle">
+        <div class="mode-tag">KI 1</div>
+        <div class="mode-name">Freestyle</div>
+        <div class="mode-desc">Lernt Loops, Rolls, Power-Loops und smooth Kurven. Bewertet nach Style-Punkten.</div>
+      </div>
+      <div class="mode-card racing">
+        <div class="mode-tag">KI 2</div>
+        <div class="mode-name">Racing</div>
+        <div class="mode-desc">Fliegt Racing-Gates so schnell wie möglich. Optimiert auf minimale Zeit.</div>
+      </div>
+      <div class="mode-card tracking">
+        <div class="mode-tag">KI 3</div>
+        <div class="mode-name">Target Tracking</div>
+        <div class="mode-desc">Erkennt und verfolgt Menschen, Drohnen, Autos über YOLO-Objekterkennung.</div>
+      </div>
+      <div class="mode-card intrusion">
+        <div class="mode-tag">KI 4</div>
+        <div class="mode-name">Intrusion</div>
+        <div class="mode-desc">Fliegt aggressiv auf ein Ziel zu und präzise hinein. Maximale g-Kräfte.</div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <strong>Für Jugend forscht:</strong> Du vergleichst alle 4 KIs in kontrollierten Tests und misst Metriken wie Reaktionszeit, Präzision und Ressourcenverbrauch auf dem Jetson Nano. Das ist dein wissenschaftlicher Beitrag!
+    </div>
+  </section>
+
+  <!-- Hardware -->
+  <section id="hardware">
+    <div class="section-header">
+      <div class="phase-num">EINKAUF</div>
+      <h2>Hardware-Einkaufsliste</h2>
+    </div>
+    <p>Alles was du brauchst, mit Links zu günstigen Quellen. Bestell alles auf einmal bei Diatone, RDQ, oder AliExpress (4-6 Wochen Lieferzeit aus China).</p>
+
+    <h3>Quad-Komponenten</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Frame</div>
+        <div class="card-title">iFlight XL5 V4</div>
+        <div class="card-price">~30 €</div>
+        <div class="card-note">5" True-X Frame, sehr verbreitet, viele Ersatzteile</div>
+      </div>
+      <div class="card">
+        <div class="card-label">4× Motor</div>
+        <div class="card-title">XING2 2306 2450KV</div>
+        <div class="card-price">~60 € (4 Stk)</div>
+        <div class="card-note">Perfekt für 4S LiPo, sehr zuverlässig</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Flight Controller</div>
+        <div class="card-title">SpeedyBee F405 V3</div>
+        <div class="card-price">~45 €</div>
+        <div class="card-note">Betaflight, USB-C, UART für Jetson Nano</div>
+      </div>
+      <div class="card">
+        <div class="card-label">ESC</div>
+        <div class="card-title">SpeedyBee BLS 55A (Stack)</div>
+        <div class="card-price">~50 €</div>
+        <div class="card-note">Combo mit FC, alles auf einem Stack = einfacher Einbau</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Akku (2×)</div>
+        <div class="card-title">CNHL 4S 1500mAh 100C</div>
+        <div class="card-price">~50 €</div>
+        <div class="card-note">2 Akkus kaufen: einer fliegt, einer lädt</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Propeller (5 Paar)</div>
+        <div class="card-title">HQProp 5.1×4.1×3</div>
+        <div class="card-price">~15 €</div>
+        <div class="card-note">Viele kaufen — kaputte Props sind normal beim Testen</div>
+      </div>
+    </div>
+
+    <h3>KI & Video System</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">AI Computer</div>
+        <div class="card-title">Jetson Orin Nano 8GB</div>
+        <div class="card-price">~180 €</div>
+        <div class="card-note">Besser als Jetson Nano! 40 TOPS, läuft YOLOv8 @ 60fps</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Video Transmitter</div>
+        <div class="card-title">DJI O4 Air Unit Pro</div>
+        <div class="card-price">~280 €</div>
+        <div class="card-note">1080p 100fps, 20km Reichweite, direkt zu Googles 3</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Kamera</div>
+        <div class="card-title">DJI O4 Air Unit Pro Camera</div>
+        <div class="card-price">(Im O4 Bundle)</div>
+        <div class="card-note">Wird mit O4 mitgeliefert. Video auch an Jetson weitergeben</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Akku-Ladegerät</div>
+        <div class="card-title">SkyRC Q200 Neo</div>
+        <div class="card-price">~70 €</div>
+        <div class="card-note">Lädt 4 Akkus gleichzeitig, sehr sicher</div>
+      </div>
+    </div>
+
+    <div class="total-card">
+      <span>Gesamt geschätzt</span>
+      <strong>~780 € — 900 €</strong>
+    </div>
+
+    <div class="warn">
+      <strong>Achtung:</strong> In Deutschland brauchst du für Drohnen über 250g einen EU-Drohnenführerschein A1/A3 (kostenlos online, 30 Min). Das ist wichtig für Jugend forscht — zeigt Professionalität!
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Phase 1 -->
+  <section id="phase1">
+    <div class="section-header">
+      <div class="phase-num">PHASE 1</div>
+      <h2>Software-Setup auf deinem PC</h2>
+    </div>
+    <p>Zuerst alles auf deinem Gaming-PC installieren. Das dauert ca. <strong>2-3 Stunden</strong>.</p>
+
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Fortschritt Phase 1</span><span>0 / 6 Schritte</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Python 3.10 installieren</div>
+          <p class="step-desc">Geh auf <strong>python.org/downloads</strong> → Download Python 3.10.x → Installieren. Wichtig: Haken bei "Add Python to PATH" setzen!</p>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL — Windows PowerShell als Admin</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="cm"># Nach der Installation testen:</span>
+python --version
+<span class="cm"># Muss ausgeben: Python 3.10.x</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">CUDA Toolkit installieren (für RTX 4060)</div>
+          <p class="step-desc">CUDA lässt deine RTX 4060 KI-Training beschleunigen. Ohne CUDA dauert Training 10× länger.</p>
+          <div class="code-block">
+            <div class="code-header"><span>BROWSER — Reihenfolge!</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="num">1.</span> developer.nvidia.com/cuda-12-1-0-download-archive
+<span class="num">2.</span> Windows → x86_64 → exe (local) → Download
+<span class="num">3.</span> Installer ausführen → "Express" wählen
+<span class="num">4.</span> PC neu starten!
+
+<span class="cm"># Danach testen:</span>
+nvcc --version
+<span class="cm"># Muss ausgeben: release 12.1</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Git installieren</div>
+          <p class="step-desc">Git brauchst du um Code von GitHub herunterzuladen.</p>
+          <div class="code-block">
+            <div class="code-header"><span>BROWSER</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>git-scm.com → Download → Alles auf Standard lassen → Installieren
+
+<span class="cm"># Testen:</span>
+git --version</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Projekt-Ordner & virtuelle Umgebung erstellen</div>
+          <p class="step-desc">Eine "virtuelle Umgebung" ist ein isolierter Python-Bereich. So bleibt dein PC aufgeräumt und nichts kollidiert mit anderen Programmen.</p>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL — PowerShell</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="cm"># Ordner erstellen und reingehen</span>
+mkdir C:\fpv-ki
+cd C:\fpv-ki
+
+<span class="cm"># Virtuelle Umgebung erstellen</span>
+python -m venv venv
+
+<span class="cm"># Aktivieren (MUSS bei jedem Terminal-Start gemacht werden!)</span>
+.\venv\Scripts\activate
+
+<span class="cm"># Jetzt siehst du (venv) am Anfang der Zeile — das ist gut!</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">PyTorch mit CUDA installieren</div>
+          <p class="step-desc">PyTorch ist das KI-Framework. Die CUDA-Version nutzt deine RTX 4060 statt der CPU.</p>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL — in C:\fpv-ki mit aktivierter venv</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="cm"># PyTorch mit CUDA 12.1 für RTX 4060</span>
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+<span class="cm"># Dauert ca. 10-15 Minuten (3GB Download!)</span>
+
+<span class="cm"># Testen ob GPU erkannt wird:</span>
+python -c <span class="str">"import torch; print(torch.cuda.is_available())"</span>
+<span class="cm"># Muss ausgeben: True</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="step-title">Alle weiteren Pakete installieren</div>
+          <p class="step-desc">Jetzt alle benötigten Libraries auf einmal installieren.</p>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>pip install stable-baselines3[extra] gymnasium numpy opencv-python ultralytics matplotlib pandas tensorboard pymavlink</code></pre>
+          </div>
+          <div class="tip" style="margin-top:0.75rem">
+            <strong>Was ist das alles?</strong> stable-baselines3 = RL-Training · gymnasium = Simulation-Interface · opencv = Bildverarbeitung · ultralytics = YOLO Objekterkennung · tensorboard = Training visualisieren · pymavlink = mit Drohne kommunizieren
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 2 -->
+  <section id="phase2">
+    <div class="section-header">
+      <div class="phase-num">PHASE 2</div>
+      <h2>AirSim Simulator einrichten</h2>
+    </div>
+    <p>AirSim ist ein Microsoft-Simulator — er sieht fast wie die echte Welt aus. Hier trainierst du die KI, ohne einen echten Quad zu crashen. Du brauchst ca. <strong>10 GB freien Speicher</strong> dafür.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">AirSim herunterladen</div>
+          <div class="code-block">
+            <div class="code-header"><span>BROWSER</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="num">1.</span> github.com/microsoft/AirSim/releases
+<span class="num">2.</span> Neueste Version → "AirSimNH.zip" (Neighborhood) herunterladen
+<span class="num">3.</span> Entpacken nach C:\fpv-ki\airsim\
+<span class="num">4.</span> AirSimNH.exe starten → Enter drücken (Quadrotor wählen)</code></pre>
+          </div>
+          <p class="step-desc" style="margin-top:0.75rem">Du siehst jetzt eine Vorstadt-Szene mit einer Drohne. Das ist deine Trainingsumgebung!</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">AirSim Python-Verbindung testen</div>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>pip install airsim
+
+<span class="cm"># Testskript erstellen: C:\fpv-ki\test_airsim.py</span></code></pre>
+          </div>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: test_airsim.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">import</span> airsim
+
+<span class="cm"># Mit laufendem AirSim verbinden</span>
+client = airsim.<span class="fn">MultirotorClient</span>()
+client.<span class="fn">confirmConnection</span>()
+client.<span class="fn">enableApiControl</span>(<span class="kw">True</span>)
+client.<span class="fn">armDisarm</span>(<span class="kw">True</span>)
+
+<span class="cm"># Drohne starten und 3 Sekunden hochfliegen</span>
+client.<span class="fn">takeoffAsync</span>().<span class="fn">join</span>()
+client.<span class="fn">moveToPositionAsync</span>(<span class="num">0</span>, <span class="num">0</span>, <span class="num">-5</span>, <span class="num">3</span>).<span class="fn">join</span>()
+
+<span class="fn">print</span>(<span class="str">"Verbindung klappt!"</span>)</code></pre>
+          </div>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL — erst AirSim starten, dann:</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>python test_airsim.py</code></pre>
+          </div>
+          <div class="tip">
+            <strong>Ergebnis:</strong> Die Drohne im Simulator sollte hochfliegen. Wenn ja, ist alles richtig eingestellt!
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Racing-Kurs in AirSim aufbauen</div>
+          <p class="step-desc">Für den Anfang nutzen wir fertige "Gates" (Tore) die bereits in AirSim eingebaut sind. Später kannst du eigene Kurse bauen.</p>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: setup_course.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">import</span> airsim
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+client = airsim.<span class="fn">MultirotorClient</span>()
+client.<span class="fn">confirmConnection</span>()
+
+<span class="cm"># 6 Racing-Tore platzieren (x, y, z in Metern)</span>
+gates = [
+    [<span class="num">10</span>, <span class="num">0</span>,  <span class="num">-3</span>],   <span class="cm"># Tor 1</span>
+    [<span class="num">20</span>, <span class="num">5</span>,  <span class="num">-4</span>],   <span class="cm"># Tor 2</span>
+    [<span class="num">30</span>, <span class="num">0</span>,  <span class="num">-3</span>],   <span class="cm"># Tor 3</span>
+    [<span class="num">40</span>, <span class="num">-5</span>, <span class="num">-5</span>],   <span class="cm"># Tor 4</span>
+    [<span class="num">30</span>, <span class="num">-10</span>,<span class="num">-4</span>],   <span class="cm"># Tor 5</span>
+    [<span class="num">15</span>, <span class="num">-5</span>, <span class="num">-3</span>],   <span class="cm"># Tor 6</span>
+]
+
+<span class="fn">print</span>(<span class="str">f"Kurs mit {len(gates)} Toren bereit!"</span>)</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 3 -->
+  <section id="phase3">
+    <div class="section-header">
+      <div class="phase-num">PHASE 3</div>
+      <h2>Quad zusammenbauen</h2>
+    </div>
+    <p>Das kannst du parallel zum Software-Setup machen, während Pakete ankommen. Plane ca. <strong>1 Wochenende</strong> für den Zusammenbau.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">YouTube-Tutorial als Anleitung</div>
+          <p class="step-desc">Suche auf YouTube: <code>"SpeedyBee F405 V3 Build Guide"</code> — das ist exakt dein Setup und es gibt sehr gute Tutorials. Joshua Bardwell und Painless360 sind die besten Quellen.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Betaflight konfigurieren</div>
+          <p class="step-desc">Betaflight ist die Firmware die auf dem FC läuft. Lade den Betaflight Configurator herunter: <code>github.com/betaflight/betaflight-configurator</code></p>
+          <ul style="margin-top:0.5rem">
+            <li>FC per USB-C anschließen</li>
+            <li>Configurator öffnen → "Connect" klicken</li>
+            <li>Unter "Modes": einen Switch für KI-Modus zuweisen (Channel 6 = 4 Positionen)</li>
+            <li>Motor Directions prüfen (sehr wichtig!)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Jetson Orin Nano montieren</div>
+          <p class="step-desc">Der Jetson Nano ist der "Gehirn-Computer" auf dem Quad. Er läuft die KI in Echtzeit.</p>
+          <ul style="margin-top:0.5rem">
+            <li>Jetson mit 3M-Klettband auf dem Quad befestigen</li>
+            <li>5V Stromversorgung vom BEC des FC abzweigen</li>
+            <li>UART-Kabel: Jetson TX → FC RX, Jetson RX → FC TX</li>
+            <li>HDMI-Kabel oder CSI: Kamera-Feed an Jetson</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Phase 4 — Racing KI -->
+  <section id="phase4">
+    <div class="section-header">
+      <div class="phase-num">PHASE 4</div>
+      <h2>Racing KI trainieren</h2>
+    </div>
+    <p>Wir fangen mit der Racing KI an — sie ist am einfachsten zu messen (Zeit) und macht das Konzept am schnellsten klar.</p>
+
+    <p>Die KI lernt durch <strong>Reinforcement Learning (RL)</strong>: Sie probiert zufällig rum, bekommt Punkte für gute Aktionen (Gate getroffen = +50), verliert Punkte für schlechte (Crash = -100). Nach Tausenden von Versuchen wird sie immer besser.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Training-Skript erstellen</div>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: C:\fpv-ki\train_racing.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">import</span> gymnasium <span class="kw">as</span> gym
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">from</span> stable_baselines3 <span class="kw">import</span> PPO
+<span class="kw">from</span> stable_baselines3.common.env_util <span class="kw">import</span> make_vec_env
+<span class="kw">import</span> airsim
+
+<span class="kw">class</span> <span class="fn">RacingEnvironment</span>(gym.Env):
+    <span class="str">"""
+    Die KI lebt in dieser Umgebung.
+    Sie bekommt:  Sensorwerte der Drohne
+    Sie schickt:  Bewegungsbefehle zurück
+    """</span>
+
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        <span class="kw">super</span>().<span class="fn">__init__</span>()
+        self.client = airsim.<span class="fn">MultirotorClient</span>()
+        self.gates = [
+            [<span class="num">10</span>,<span class="num">0</span>,<span class="num">-3</span>], [<span class="num">20</span>,<span class="num">5</span>,<span class="num">-4</span>], [<span class="num">30</span>,<span class="num">0</span>,<span class="num">-3</span>],
+            [<span class="num">40</span>,<span class="num">-5</span>,<span class="num">-5</span>], [<span class="num">30</span>,<span class="num">-10</span>,<span class="num">-4</span>], [<span class="num">15</span>,<span class="num">-5</span>,<span class="num">-3</span>],
+        ]
+        self.current_gate = <span class="num">0</span>
+        self.step_count = <span class="num">0</span>
+
+        <span class="cm"># Was die KI steuern kann: [vx, vy, vz, yaw]</span>
+        <span class="cm"># Jeder Wert zwischen -1 und +1</span>
+        self.action_space = gym.spaces.<span class="fn">Box</span>(
+            low=<span class="num">-1</span>, high=<span class="num">1</span>, shape=(<span class="num">4</span>,), dtype=np.float32
+        )
+
+        <span class="cm"># Was die KI sehen kann: Position + Geschwindigkeit + nächstes Tor</span>
+        self.observation_space = gym.spaces.<span class="fn">Box</span>(
+            low=<span class="num">-100</span>, high=<span class="num">100</span>, shape=(<span class="num">9</span>,), dtype=np.float32
+        )
+
+    <span class="kw">def</span> <span class="fn">reset</span>(self, seed=<span class="kw">None</span>):
+        <span class="cm"># Neustart: Drohne zurück an Start</span>
+        self.client.<span class="fn">reset</span>()
+        self.client.<span class="fn">enableApiControl</span>(<span class="kw">True</span>)
+        self.client.<span class="fn">armDisarm</span>(<span class="kw">True</span>)
+        self.client.<span class="fn">takeoffAsync</span>().<span class="fn">join</span>()
+        self.current_gate = <span class="num">0</span>
+        self.step_count = <span class="num">0</span>
+        <span class="kw">return</span> self.<span class="fn">_get_obs</span>(), {}
+
+    <span class="kw">def</span> <span class="fn">step</span>(self, action):
+        <span class="cm"># KI schickt Befehl → Drohne führt aus</span>
+        vx, vy, vz, yaw = action * <span class="num">10</span>  <span class="cm"># Skalieren auf m/s</span>
+        self.client.<span class="fn">moveByVelocityAsync</span>(vx, vy, vz, <span class="num">0.1</span>).<span class="fn">join</span>()
+
+        obs = self.<span class="fn">_get_obs</span>()
+        reward = self.<span class="fn">_calc_reward</span>()
+        self.step_count += <span class="num">1</span>
+
+        <span class="cm"># Episode beenden wenn: alle Gates geschafft ODER Crash ODER zu viele Steps</span>
+        done = (self.current_gate >= <span class="fn">len</span>(self.gates)
+                <span class="kw">or</span> self.<span class="fn">_crashed</span>()
+                <span class="kw">or</span> self.step_count > <span class="num">500</span>)
+
+        <span class="kw">return</span> obs, reward, done, <span class="kw">False</span>, {}
+
+    <span class="kw">def</span> <span class="fn">_get_obs</span>(self):
+        <span class="cm"># Aktuelle Position und Geschwindigkeit auslesen</span>
+        state = self.client.<span class="fn">getMultirotorState</span>()
+        pos = state.kinematics_estimated.position
+        vel = state.kinematics_estimated.linear_velocity
+        gate = self.gates[<span class="fn">min</span>(self.current_gate, <span class="fn">len</span>(self.gates)-<span class="num">1</span>)]
+
+        <span class="kw">return</span> np.<span class="fn">array</span>([
+            pos.x_val, pos.y_val, pos.z_val,   <span class="cm"># Wo bin ich?</span>
+            vel.x_val, vel.y_val, vel.z_val,   <span class="cm"># Wie schnell?</span>
+            gate[<span class="num">0</span>]-pos.x_val,               <span class="cm"># Wie weit zum nächsten Tor?</span>
+            gate[<span class="num">1</span>]-pos.y_val,
+            gate[<span class="num">2</span>]-pos.z_val,
+        ], dtype=np.float32)
+
+    <span class="kw">def</span> <span class="fn">_calc_reward</span>(self):
+        state = self.client.<span class="fn">getMultirotorState</span>()
+        pos = state.kinematics_estimated.position
+        gate = self.gates[<span class="fn">min</span>(self.current_gate, <span class="fn">len</span>(self.gates)-<span class="num">1</span>)]
+
+        dist = np.<span class="fn">sqrt</span>(
+            (pos.x_val - gate[<span class="num">0</span>])**<span class="num">2</span> +
+            (pos.y_val - gate[<span class="num">1</span>])**<span class="num">2</span> +
+            (pos.z_val - gate[<span class="num">2</span>])**<span class="num">2</span>
+        )
+
+        <span class="kw">if</span> dist < <span class="num">2.0</span>:  <span class="cm"># Tor geschafft!</span>
+            self.current_gate += <span class="num">1</span>
+            <span class="kw">return</span> <span class="num">50.0</span>
+
+        <span class="kw">if</span> self.<span class="fn">_crashed</span>():
+            <span class="kw">return</span> <span class="num">-100.0</span>
+
+        <span class="cm"># Je näher am Tor, desto besser</span>
+        <span class="kw">return</span> -dist * <span class="num">0.1</span> - <span class="num">0.5</span>
+
+    <span class="kw">def</span> <span class="fn">_crashed</span>(self):
+        state = self.client.<span class="fn">getMultirotorState</span>()
+        <span class="kw">return</span> state.landed_state == airsim.LandedState.Landed
+
+
+<span class="cm"># ── Training starten ──────────────────────────────</span>
+<span class="kw">if</span> __name__ == <span class="str">"__main__"</span>:
+    env = <span class="fn">RacingEnvironment</span>()
+
+    <span class="cm"># PPO ist ein bewährter RL-Algorithmus (ähnlich wie AlphaGo)</span>
+    model = <span class="fn">PPO</span>(
+        <span class="str">"MlpPolicy"</span>,
+        env,
+        verbose=<span class="num">1</span>,
+        learning_rate=<span class="num">3e-4</span>,
+        n_steps=<span class="num">2048</span>,
+        device=<span class="str">"cuda"</span>  <span class="cm"># RTX 4060 nutzen!</span>
+    )
+
+    <span class="fn">print</span>(<span class="str">"Training startet... (ca. 2-4 Stunden)"</span>)
+    model.<span class="fn">learn</span>(total_timesteps=<span class="num">500_000</span>)
+    model.<span class="fn">save</span>(<span class="str">"models/racing_ki"</span>)
+    <span class="fn">print</span>(<span class="str">"Racing KI gespeichert!"</span>)</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Training beobachten mit TensorBoard</div>
+          <p class="step-desc">TensorBoard zeigt dir in Echtzeit ob die KI besser wird. Öffne ein zweites Terminal:</p>
+          <div class="code-block">
+            <div class="code-header"><span>2. TERMINAL — parallel zum Training</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>cd C:\fpv-ki
+.\venv\Scripts\activate
+tensorboard --logdir=./logs
+
+<span class="cm"># Browser öffnen: localhost:6006</span>
+<span class="cm"># Du siehst live-Graphen wie gut die KI wird!</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Training starten</div>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL — erst AirSim starten!</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code>mkdir models
+python train_racing.py</code></pre>
+          </div>
+          <div class="tip">
+            <strong>Was passiert jetzt?</strong> Die Drohne im Simulator fliegt erst chaotisch rum, crasht dauernd. Nach ca. 1 Stunde fängt sie an, die ersten Tore zu treffen. Nach 4-6 Stunden fliegt sie die ganze Strecke durch!
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 5 — Tracking KI -->
+  <section id="phase5">
+    <div class="section-header">
+      <div class="phase-num">PHASE 5</div>
+      <h2>Target Tracking KI</h2>
+    </div>
+    <p>Die Tracking KI kombiniert zwei Technologien: <strong>YOLO</strong> (erkennt Objekte im Bild) + <strong>Kalman Filter</strong> (sagt vorher wohin sich das Ziel bewegt) + <strong>PID-Controller</strong> (fliegt dorthin).</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">YOLO Objekterkennung testen</div>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: test_yolo.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">from</span> ultralytics <span class="kw">import</span> YOLO
+<span class="kw">import</span> cv2
+
+<span class="cm"># YOLOv8n = kleinste/schnellste Version</span>
+model = <span class="fn">YOLO</span>(<span class="str">"yolov8n.pt"</span>)  <span class="cm"># Automatisch heruntergeladen</span>
+
+<span class="cm"># Webcam-Test (oder Bild-Datei)</span>
+<span class="kw">for</span> result <span class="kw">in</span> model.<span class="fn">predict</span>(source=<span class="num">0</span>, stream=<span class="kw">True</span>, show=<span class="kw">True</span>):
+    boxes = result.boxes
+    <span class="kw">for</span> box <span class="kw">in</span> boxes:
+        cls = result.names[<span class="fn">int</span>(box.cls)]
+        conf = box.conf[<span class="num">0</span>]
+        <span class="kw">if</span> cls == <span class="str">"person"</span> <span class="kw">and</span> conf > <span class="num">0.6</span>:
+            <span class="fn">print</span>(<span class="str">f"Person erkannt! Konfidenz: {conf:.1%}"</span>)</code></pre>
+          </div>
+          <p class="step-desc" style="margin-top:0.75rem">Richte die Webcam auf dich — YOLO sollte dich als "person" markieren (grüner Rahmen).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Tracking-Controller schreiben</div>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: tracking_ki.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">from</span> ultralytics <span class="kw">import</span> YOLO
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> airsim
+
+model = <span class="fn">YOLO</span>(<span class="str">"yolov8n.pt"</span>)
+client = airsim.<span class="fn">MultirotorClient</span>()
+client.<span class="fn">confirmConnection</span>()
+client.<span class="fn">enableApiControl</span>(<span class="kw">True</span>)
+
+FRAME_CENTER = np.<span class="fn">array</span>([<span class="num">320</span>, <span class="num">240</span>])  <span class="cm"># 640×480 Kamera</span>
+KP = <span class="num">0.02</span>  <span class="cm"># Wie aggressiv der PID reagiert</span>
+
+<span class="kw">while True</span>:
+    <span class="cm"># Bild aus AirSim-Kamera</span>
+    response = client.<span class="fn">simGetImages</span>([
+        airsim.<span class="fn">ImageRequest</span>(<span class="str">"0"</span>, airsim.ImageType.Scene, <span class="kw">False</span>, <span class="kw">False</span>)
+    ])[<span class="num">0</span>]
+    img = np.<span class="fn">frombuffer</span>(response.image_data_uint8, dtype=np.uint8)
+    img = img.<span class="fn">reshape</span>(response.height, response.width, <span class="num">3</span>)
+
+    <span class="cm"># YOLO erkennt Objekte</span>
+    results = model(img, verbose=<span class="kw">False</span>)
+    detections = results[<span class="num">0</span>].boxes
+
+    <span class="kw">if</span> <span class="fn">len</span>(detections) > <span class="num">0</span>:
+        <span class="cm"># Bestes Objekt nehmen (höchste Konfidenz)</span>
+        best = detections[detections.conf.<span class="fn">argmax</span>()]
+        x1, y1, x2, y2 = best.xyxy[<span class="num">0</span>]
+        center = np.<span class="fn">array</span>([(x1+x2)/<span class="num">2</span>, (y1+y2)/<span class="num">2</span>])
+
+        <span class="cm"># Fehler = wie weit ist das Ziel vom Bildmittelpunkt?</span>
+        error = center - FRAME_CENTER
+
+        <span class="cm"># Drohne in Richtung Fehler steuern</span>
+        vy = -error[<span class="num">0</span>] * KP  <span class="cm"># Links/Rechts</span>
+        vz = -error[<span class="num">1</span>] * KP  <span class="cm"># Oben/Unten</span>
+        vx = <span class="num">2.0</span>              <span class="cm"># Immer langsam vorwärts</span>
+
+        client.<span class="fn">moveByVelocityAsync</span>(vx, vy, vz, <span class="num">0.1</span>)
+    <span class="kw">else</span>:
+        <span class="cm"># Kein Ziel → an Ort bleiben</span>
+        client.<span class="fn">hoverAsync</span>()</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 6 & 7 kurz -->
+  <section id="phase6">
+    <div class="section-header">
+      <div class="phase-num">PHASE 6</div>
+      <h2>Freestyle & Intrusion KI</h2>
+    </div>
+    <p>Diese beiden KIs bauen auf dem Racing-Code auf. Der Unterschied liegt in der <strong>Reward-Funktion</strong> — was bekommt die KI als Belohnung?</p>
+
+    <table>
+      <tr><th>KI-Modus</th><th>Belohnung (Reward)</th><th>Strafe</th><th>Training-Zeit</th></tr>
+      <tr><td>Racing</td><td>+50 Gate getroffen, +Speed</td><td>-100 Crash</td><td>4-6h</td></tr>
+      <tr><td>Freestyle</td><td>+G-Kräfte, +Smooth Kurven</td><td>-Geradeaus fliegen</td><td>6-8h</td></tr>
+      <tr><td>Tracking</td><td>+Ziel im Bild-Zentrum</td><td>-Ziel verloren</td><td>3-4h</td></tr>
+      <tr><td>Intrusion</td><td>+Nähe zum Ziel, +Geschwindigkeit</td><td>-Crash zu früh</td><td>4-5h</td></tr>
+    </table>
+
+    <div class="tip">
+      <strong>Wichtig für Freestyle:</strong> Damit die KI "Style" lernt, musst du Manöver in der Reward-Funktion definieren. Ein Power-Loop = Drohne macht eine vertikale 360°-Drehung. Reward = wie nahe kam die Attitude (Lage) dem Ideal-Winkel?
+    </div>
+  </section>
+
+  <!-- Phase 8 -->
+  <section id="phase8">
+    <div class="section-header">
+      <div class="phase-num">PHASE 8</div>
+      <h2>Deployment auf dem Quad</h2>
+    </div>
+    <p>Jetzt das trainierte Modell vom PC auf den Jetson Orin Nano übertragen und auf dem echten Quad testen.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Jetson Orin Nano einrichten</div>
+          <div class="code-block">
+            <div class="code-header"><span>AUF JETSON — via SSH oder HDMI</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="cm"># 1. JetPack 6.0 installieren (von SD-Karte oder NVME)</span>
+<span class="cm">#    developer.nvidia.com/embedded/jetpack</span>
+
+<span class="cm"># 2. Python Pakete installieren</span>
+pip3 install ultralytics torch pymavlink opencv-python
+
+<span class="cm"># 3. Modell vom PC kopieren (via SCP oder USB-Stick)</span>
+scp user@pc:C:/fpv-ki/models/racing_ki.zip ./models/</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Modell exportieren (schneller auf Jetson)</div>
+          <div class="code-block">
+            <div class="code-header"><span>AUF PC — vor dem Export</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">from</span> stable_baselines3 <span class="kw">import</span> PPO
+<span class="kw">import</span> torch
+
+<span class="cm"># Modell laden</span>
+model = PPO.<span class="fn">load</span>(<span class="str">"models/racing_ki"</span>)
+
+<span class="cm"># Als ONNX exportieren (läuft 3× schneller auf Jetson)</span>
+dummy_input = torch.<span class="fn">zeros</span>(<span class="num">1</span>, <span class="num">9</span>)  <span class="cm"># 9 Observations</span>
+torch.onnx.<span class="fn">export</span>(
+    model.policy,
+    dummy_input,
+    <span class="str">"models/racing_ki.onnx"</span>
+)
+<span class="fn">print</span>(<span class="str">"Export fertig!"</span>)</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Erster echter Testflug</div>
+          <p class="step-desc">Erster Test immer mit Propeller Guard und über Gras (weicher Aufprall)! Starte auf <code>Arm-Level</code> in Betaflight, nicht direkt auf Full-Auto.</p>
+          <div class="warn">
+            <strong>Sicherheitsregel:</strong> Erster Testflug immer mit einem Sicherheitspiloten der jederzeit die Fernsteuerung übernehmen kann (Failsafe auf Channel 5). Nie alleine testen!
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phase 9 — DJI Googles -->
+  <section id="phase9">
+    <div class="section-header">
+      <div class="phase-num">PHASE 9</div>
+      <h2>DJI Googles 3 Overlay</h2>
+    </div>
+    <p>Die coolste Funktion: Du siehst in deinen Googles die geplante Flugstrecke als Overlay überlagert über das Live-Bild.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">OSD via MSP-Protocol</div>
+          <p class="step-desc">Die DJI Googles nutzen MSP-Protokoll (MultiWii Serial Protocol) für OSD (On-Screen Display). Der Jetson Nano schickt Text und Symbole über dieses Protokoll.</p>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: googles_overlay.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">import</span> serial
+<span class="kw">import</span> struct
+
+<span class="kw">class</span> <span class="fn">GogglesOSD</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, port=<span class="str">"/dev/ttyUSB0"</span>, baud=<span class="num">115200</span>):
+        self.ser = serial.<span class="fn">Serial</span>(port, baud, timeout=<span class="num">1</span>)
+
+    <span class="kw">def</span> <span class="fn">show_mode</span>(self, mode_name):
+        <span class="str">"""Aktuellen KI-Modus anzeigen"""</span>
+        <span class="cm"># MSP_SET_OSD_CONFIG format</span>
+        data = mode_name.<span class="fn">encode</span>()[:16]  <span class="cm"># Max 16 Zeichen</span>
+        self.<span class="fn">_send_msp</span>(<span class="num">84</span>, data)
+
+    <span class="kw">def</span> <span class="fn">show_target_distance</span>(self, dist_m):
+        <span class="str">"""Entfernung zum Ziel anzeigen"""</span>
+        text = <span class="str">f"TGT {dist_m:.1f}m"</span>.<span class="fn">encode</span>()
+        self.<span class="fn">_send_msp</span>(<span class="num">84</span>, text)
+
+    <span class="kw">def</span> <span class="fn">_send_msp</span>(self, cmd, data):
+        <span class="cm"># MSP Packet bauen</span>
+        size = <span class="fn">len</span>(data)
+        crc = size ^ cmd
+        <span class="kw">for</span> b <span class="kw">in</span> data: crc ^= b
+        packet = struct.<span class="fn">pack</span>(<span class="str">'BBBBs'</span>, <span class="num">36</span>, <span class="num">77</span>, <span class="num">60</span>, size, cmd) + data + struct.<span class="fn">pack</span>(<span class="str">'B'</span>, crc)
+        self.ser.<span class="fn">write</span>(packet)</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Waypoints als Linien einzeichnen</div>
+          <p class="step-desc">Für die Routen-Visualisierung: Der Jetson rendert die geplante Route direkt ins Video-Frame (OpenCV), bevor es an die O4 Air Unit geht.</p>
+          <div class="code-block">
+            <div class="code-header"><span>DATEI: route_overlay.py</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="kw">import</span> cv2
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+
+<span class="kw">def</span> <span class="fn">draw_route_on_frame</span>(frame, waypoints_3d, camera_matrix, mode):
+    <span class="str">"""
+    Zeichnet Waypoints als Linien ins FPV-Bild
+    waypoints_3d = Liste von (x, y, z) Koordinaten im Weltkoordinatensystem
+    """</span>
+    frame_copy = frame.<span class="fn">copy</span>()
+
+    <span class="cm"># Modus-Farben</span>
+    colors = {
+        <span class="str">"RACING"</span>:    (<span class="num">0</span>, <span class="num">255</span>, <span class="num">255</span>),  <span class="cm"># Gelb</span>
+        <span class="str">"FREESTYLE"</span>: (<span class="num">255</span>, <span class="num">0</span>, <span class="num">255</span>),  <span class="cm"># Magenta</span>
+        <span class="str">"TRACKING"</span>:  (<span class="num">0</span>, <span class="num">255</span>, <span class="num">0</span>),    <span class="cm"># Grün</span>
+        <span class="str">"INTRUSION"</span>: (<span class="num">0</span>, <span class="num">0</span>, <span class="num">255</span>),    <span class="cm"># Rot</span>
+    }
+    color = colors.<span class="fn">get</span>(mode, (<span class="num">255</span>, <span class="num">255</span>, <span class="num">255</span>))
+
+    <span class="cm"># 3D → 2D projizieren und Linie zeichnen</span>
+    prev_pt = <span class="kw">None</span>
+    <span class="kw">for</span> wp <span class="kw">in</span> waypoints_3d:
+        pt_3d = np.<span class="fn">array</span>([wp], dtype=np.float32)
+        pt_2d, _ = cv2.<span class="fn">projectPoints</span>(pt_3d, np.<span class="fn">zeros</span>(<span class="num">3</span>), np.<span class="fn">zeros</span>(<span class="num">3</span>), camera_matrix, <span class="kw">None</span>)
+        pt = (<span class="fn">int</span>(pt_2d[<span class="num">0</span>][<span class="num">0</span>][<span class="num">0</span>]), <span class="fn">int</span>(pt_2d[<span class="num">0</span>][<span class="num">0</span>][<span class="num">1</span>]))
+
+        cv2.<span class="fn">circle</span>(frame_copy, pt, <span class="num">8</span>, color, <span class="num">2</span>)
+        <span class="kw">if</span> prev_pt:
+            cv2.<span class="fn">line</span>(frame_copy, prev_pt, pt, color, <span class="num">1</span>)
+        prev_pt = pt
+
+    <span class="cm"># Modus-Text oben links</span>
+    cv2.<span class="fn">putText</span>(frame_copy, <span class="str">f"KI: {mode}"</span>, (<span class="num">20</span>, <span class="num">40</span>),
+               cv2.FONT_HERSHEY_SIMPLEX, <span class="num">0.8</span>, color, <span class="num">2</span>)
+
+    <span class="kw">return</span> frame_copy</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Jugend Forscht -->
+  <section id="jugend-forscht">
+    <div class="section-header">
+      <div class="phase-num">JF</div>
+      <h2>Jugend forscht Tipps</h2>
+    </div>
+
+    <div class="jf-banner">
+      <h3>Dein wissenschaftlicher Beitrag</h3>
+      <p>Jugend forscht bewertet nicht nur ob etwas funktioniert, sondern ob du <strong>wissenschaftlich denkst</strong>. Du hast 4 KIs = perfekter Vergleich!</p>
+    </div>
+
+    <h3>Forschungsfrage vorschlagen</h3>
+    <p>Eine gute Forschungsfrage könnte sein: "Welcher Reinforcement-Learning-Ansatz erzielt bei autonomen FPV-Drohnen die beste Leistung für verschiedene Aufgaben (Racing, Tracking, Freestyle, Intrusion) bei limitierter Rechenkapazität?"</p>
+
+    <h3>Messbare Metriken für den Vergleich</h3>
+    <table>
+      <tr><th>KI-Modus</th><th>Metrik 1</th><th>Metrik 2</th><th>Metrik 3</th></tr>
+      <tr><td>Racing</td><td>Rundenzeit (s)</td><td>Gate-Trefferquote (%)</td><td>Crashes pro Run</td></tr>
+      <tr><td>Freestyle</td><td>Manöver pro Minute</td><td>G-Kraft Spitzen</td><td>Smoothness Score</td></tr>
+      <tr><td>Tracking</td><td>Ziel-Loss-Rate (%)</td><td>Reaktionszeit (ms)</td><td>Abstandsfehler (m)</td></tr>
+      <tr><td>Intrusion</td><td>Präzision (cm)</td><td>Zeit bis Ziel (s)</td><td>Erfolgsrate (%)</td></tr>
+    </table>
+
+    <h3>Was du dokumentieren solltest</h3>
+    <ul>
+      <li><strong>Training-Kurven</strong> aus TensorBoard (Screenshots, in Arbeit einbinden)</li>
+      <li><strong>Reward-Verläufe</strong> aller 4 KIs im Vergleich</li>
+      <li><strong>Inference-Zeiten</strong> auf Jetson Nano vs. auf PC messen</li>
+      <li><strong>Video-Material</strong> von Simulator + echtem Quad</li>
+      <li><strong>Hardware-Schaltplan</strong> wie alles verbunden ist</li>
+    </ul>
+
+    <div class="tip">
+      <strong>Tipp für den Vortrag:</strong> Zeige einen Live-Demo im Simulator (Laptop mit AirSim). Das beeindruckt Jurorinnen und Juroren enorm und du bist nicht vom Wetter abhängig!
+    </div>
+  </section>
+
+  <!-- Timeline -->
+  <section>
+    <div class="section-header">
+      <div class="phase-num">PLAN</div>
+      <h2>Zeitplan (Hobby-Tempo)</h2>
+    </div>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-phase">Woche 1–2</div>
+        <div class="tl-title">Hardware bestellen + Software Setup</div>
+        <div class="tl-desc">PC einrichten, CUDA testen, AirSim zum Laufen bringen. Quad-Teile kommen aus China.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-phase">Woche 3–4</div>
+        <div class="tl-title">Racing KI trainieren</div>
+        <div class="tl-desc">Erste KI in AirSim, TensorBoard beobachten. Modell abspeichern und testen.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-phase">Woche 5–6</div>
+        <div class="tl-title">Quad zusammenbauen + Betaflight</div>
+        <div class="tl-desc">Hardware ankam → zusammenbauen. Erster manueller Testflug ohne KI.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-phase">Woche 7–8</div>
+        <div class="tl-title">Tracking + Freestyle KI</div>
+        <div class="tl-desc">YOLO Tracking und Freestyle KI parallel trainieren.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-phase">Woche 9–10</div>
+        <div class="tl-title">Intrusion KI + Deployment</div>
+        <div class="tl-desc">Letzte KI trainieren, alle 4 auf Jetson Nano deployen, echte Tests.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot milestone"></div>
+        <div class="tl-phase">Woche 11–12</div>
+        <div class="tl-title">DJI Googles Overlay + Messungen</div>
+        <div class="tl-desc">Overlay fertigstellen, alle Metriken messen und für Jugend forscht dokumentieren.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GitHub Pages -->
+  <section>
+    <div class="section-header">
+      <div class="phase-num">GITHUB</div>
+      <h2>Diese Seite auf GitHub Pages veröffentlichen</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">GitHub Account erstellen</div>
+          <p class="step-desc">Gehe zu <strong>github.com</strong> → Sign up → kostenloses Konto erstellen.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Repository erstellen</div>
+          <p class="step-desc">Klicke auf "+" → "New repository". Name: <code>fpv-drohnen-ki</code> → Public → "Add README" anhaken → Create.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Diese index.html hochladen</div>
+          <div class="code-block">
+            <div class="code-header"><span>TERMINAL</span><button class="copy-btn" onclick="copyCode(this)">kopieren</button></div>
+            <pre><code><span class="cm"># Repository klonen</span>
+git clone https://github.com/DEIN-USERNAME/fpv-drohnen-ki.git
+cd fpv-drohnen-ki
+
+<span class="cm"># index.html in diesen Ordner kopieren</span>
+<span class="cm"># Dann hochladen:</span>
+git add index.html
+git commit -m "Website hinzugefügt"
+git push</code></pre>
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">GitHub Pages aktivieren</div>
+          <p class="step-desc">Im Repository: <strong>Settings</strong> → <strong>Pages</strong> → Source: "Deploy from branch" → Branch: main → / (root) → <strong>Save</strong>.</p>
+          <p class="step-desc">Nach 2-3 Minuten ist deine Seite live unter: <code>DEIN-USERNAME.github.io/fpv-drohnen-ki</code></p>
+          <div class="tip">
+            <strong>Für Jugend forscht:</strong> Diese URL in deine schriftliche Ausarbeitung eintragen — zeigt dass du modern arbeitest!
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>FPV Drohnen-KI Projekt · Jugend forscht · Erstellt für RTX 4060 · AirSim + PyTorch + Betaflight</p>
+    <p style="margin-top:0.5rem">Ressourcen: <a href="https://github.com/microsoft/AirSim" target="_blank">AirSim</a> · <a href="https://stable-baselines3.readthedocs.io" target="_blank">Stable Baselines 3</a> · <a href="https://docs.ultralytics.com" target="_blank">YOLOv8 Docs</a> · <a href="https://betaflight.com" target="_blank">Betaflight</a></p>
+  </footer>
+
+</main>
+</div>
+
+<script>
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  const text = pre.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ kopiert';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'kopieren';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// Active nav highlight on scroll
+const sections = document.querySelectorAll('section[id], div[id]');
+const navLinks = document.querySelectorAll('nav a');
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navLinks.forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
